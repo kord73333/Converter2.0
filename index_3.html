@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конвертор валют</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="Images/2.png">
+    <style>
+        :root {
+            --neon-purple: #bc13fe;
+            --neon-pink: #ff00ff;
+            --bg-dark: #05000a;
+            --panel-bg: rgba(13, 0, 26, 0.85);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--neon-purple);
+        }
+
+        .blurred-background {
+            position: fixed;
+            top: -10px; left: -10px; right: -10px; bottom: -10px;
+            background-image: url('images/1.jpg'); 
+            background-size: cover;
+            background-position: center;
+            filter: blur(20px);
+            z-index: -1;
+            transform: scale(1.1);
+        }
+
+        .terminal {
+            background: var(--panel-bg);
+            padding: 40px;
+            border: 2px solid var(--neon-purple);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(188, 19, 254, 0.5);
+            width: 400px;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 { 
+            text-align: center;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-top: 0;
+            text-shadow: 0 0 10px var(--neon-purple);
+        }
+        .input-group { margin-bottom: 20px; position: relative; }
+        label { 
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--neon-purple);
+            color: white;
+            border-radius: 5px;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        input:focus {
+            box-shadow: 0 0 10px var(--neon-purple);
+        }
+
+        input.error {
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 20px var(--neon-pink);
+            color: var(--neon-pink);
+        }
+
+        .result-display {
+            background: rgba(188, 19, 254, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+            border: 1px dashed var(--neon-purple);
+        }
+
+        #total-value {
+            font-size: 2.5rem;
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 15px var(--neon-purple);
+        }
+        .hint {
+            font-size: 0.7rem;
+            color: #777;
+            margin-top: 20px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .idle-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 0, 10, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border-radius: 20px;
+            padding: 30px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+
+        .idle-screen h3 {
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="blurred-background"></div>
+
+    <div class="terminal" id="main-terminal">
+        <h1>Бортовой Конвертер</h1>
+        
+        <div class="input-group">
+            <label>Количество кредитов (Amount):</label>
+            <input type="text" id="amount" placeholder="0.00">
+        </div>
+
+        <div class="input-group">
+            <label>Курс галактики (Rate):</label>
+            <input type="text" id="rate" placeholder="1.00">
+        </div>
+
+        <div class="result-display">
+            ИТОГО К ОПЛАТЕ:
+            <span id="total-value">0.00</span>
+        </div>
+
+        <div class="hint">
+            [ENTER] - Рассчитать | [ESC] - Сброс
+        </div>
+
+        <div id="idle-screen" class="idle-screen">
+            <h3>СИСТЕМА В ОЖИДАНИИ</h3>
+            <p id="fact-text">Загрузка факта...</p>
+        </div>
+    </div>
+
+<script>
+    const transaction = {
+        amount: 0,
+        rate: 0,
+        total: 0,
+        
+        calculate() {
+            this.total = this.amount * this.rate;
+            return this.total.toFixed(2);
+        }
+    };
+
+    const amountInput = document.getElementById('amount');
+    const rateInput = document.getElementById('rate');
+    const totalDisplay = document.getElementById('total-value');
+    const idleScreen = document.getElementById('idle-screen');
+    const factText = document.getElementById('fact-text');
+
+    const facts = [
+        "В космосе никто не услышит твой крик (и курс валют).",
+        "Самая дорогая валюта в галактике — чистая вода.",
+        "Нейтронные звезды вращаются со скоростью 600 оборотов в секунду.",
+        "На Венере день длится дольше, чем год.",
+        "Черные дыры не черные, они просто не выпускают свет."
+    ];
+
+    let idleTimer;
+
+    function updateCalculation() {
+        const aInput = amountInput.value.trim().replace(',', '.');
+        const rInput = rateInput.value.trim().replace(',', '.');
+
+        const a = parseFloat(aInput);
+        const r = parseFloat(rInput);
+
+        let hasError = false;
+
+        if (aInput === "" || isNaN(a) || a < 0) {
+            amountInput.classList.add('error');
+            hasError = true;
+        } else {
+            amountInput.classList.remove('error');
+            transaction.amount = a;
+        }
+
+        if (rInput === "" || isNaN(r) || r < 0) {
+            rateInput.classList.add('error');
+            hasError = true;
+        } else {
+            rateInput.classList.remove('error');
+            transaction.rate = r;
+        }
+
+        if (!hasError) {
+            totalDisplay.innerText = transaction.calculate();
+        } else {
+            totalDisplay.innerText = "ERROR";
+        }
+    }
+
+    window.addEventListener('keydown', (e) => {
+        resetIdle();
+        if (e.key === 'Enter') updateCalculation();
+        if (e.key === 'Escape') {
+            amountInput.value = '';
+            rateInput.value = '';
+            amountInput.classList.remove('error');
+            rateInput.classList.remove('error');
+            totalDisplay.innerText = '0.00';
+        }
+    });
+
+    function showIdle() {
+        factText.innerText = facts[Math.floor(Math.random() * facts.length)];
+        idleScreen.style.display = 'flex';
+    }
+
+    function resetIdle() {
+        idleScreen.style.display = 'none';
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(showIdle, 10000); 
+    }
+
+    document.addEventListener('mousemove', resetIdle);
+    document.addEventListener('keypress', resetIdle);
+    
+    resetIdle();
+
+</script>
+</body>
+</html>
